@@ -1,0 +1,105 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  overflow: hidden;
+  background: #000;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- Stage ---- */
+#stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- Backgrounds ---- */
+.bg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* ---- Sprites ---- */
+.sprite {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  -webkit-user-drag: none;
+  height: auto;
+}
+
+/* ---- Visibility ---- */
+.hidden { display: none !important; }
+
+.clickable {
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+
+.draggable {
+  pointer-events: auto !important;
+  cursor: grab;
+  touch-action: none;
+}
+.draggable:active { cursor: grabbing; }
+
+/* ---- Animations ---- */
+@keyframes pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.12; }
+}
+.pulse { animation: pulse 1s ease-in-out infinite; }
+
+@keyframes fish-pulse {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.18; }
+}
+.fish-pulse { animation: fish-pulse 0.8s ease-in-out infinite; }
+
+/* ---- Fade helper ---- */
+.fade-out {
+  transition: opacity 0.8s ease;
+  opacity: 0 !important;
+}
+
+/* ---- Ripple (Scene 2) ---- */
+#ripple {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.35;
+  background:
+    repeating-radial-gradient(ellipse at 30% 40%, transparent 0%, rgba(120,200,255,0.15) 3%, transparent 6%),
+    repeating-radial-gradient(ellipse at 70% 60%, transparent 0%, rgba(100,180,255,0.12) 4%, transparent 8%);
+  animation: ripple-anim 4s ease-in-out infinite alternate;
+}
+
+@keyframes ripple-anim {
+  0%   { background-position: 0 0, 0 0;       opacity: 0.25; }
+  100% { background-position: 20px 10px, -15px 8px; opacity: 0.45; }
+}
+
+/* ---- Debug markers ---- */
+.dbg-dot {
+  position: absolute;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  pointer-events: none;
+  border: 2px solid #fff;
+}
+.dbg-blue { background: rgba(0,100,255,0.85); }
+.dbg-red  { background: rgba(255,0,0,0.85); }
+
+.dbg-rect {
+  position: absolute;
+  border: 2px dashed lime;
+  background: rgba(0,255,0,0.1);
+  z-index: 9998;
+  pointer-events: none;
+}
