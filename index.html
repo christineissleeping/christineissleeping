@@ -228,6 +228,40 @@
 </div>
 
 <script>
+// ============================================================
+// CONFIG — all tuneable values for the room interaction scene.
+// Coordinates use % relative to the Background-1 bounds
+// (which is scaled to bgScale and centred on stage).
+// ============================================================
+const CONFIG = {
+  // --- Stage ---
+  stageWidth:  window.innerWidth,
+  stageHeight: window.innerHeight,
+
+  // --- Background ---
+  bgScale: 0.5,   // Background-1 rendered at 50% of its native size
+
+  // --- Object anchors (% of background bounds) ---
+  bedCatAnchor:   { x: 0.72, y: 0.55 },  // cat sleeping on bed
+  hatAnchor:      { x: 0.25, y: 0.40 },  // hat item location
+  standCatAnchor: { x: 0.15, y: 0.75 },  // cat standing position
+
+  // --- Door trigger zone (% of background bounds) ---
+  doorZone: { x: 0.88, y: 0.30, width: 0.10, height: 0.45 },
+
+  // --- Timing (ms unless noted) ---
+  timing: {
+    blinkInterval:  3000,  // ms between cat blinks
+    blinkDuration:   200,  // ms eyes stay closed
+    bubbleDelay:    1500,  // ms before speech/thought bubble appears
+    pulseSpeed:      800,  // ms per pulse cycle for interactive hints
+    sceneFade:       600,  // ms for scene fade transitions
+  },
+
+  // --- Debug ---
+  debugMode: false,  // set true to show hit-boxes & anchor markers
+};
+
 (function () {
   // ---- Element references ----
   const scene1 = document.getElementById('scene1');
