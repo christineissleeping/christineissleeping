@@ -215,10 +215,38 @@
     display: block;
   }
 
+  .room-object {
+    position: absolute;
+    z-index: 2;
+  }
+
   /* Debug: visible outline around background bounds */
   .debug-outline {
     outline: 2px dashed rgba(0, 255, 0, 0.7);
     outline-offset: -1px;
+  }
+
+  /* Debug: anchor-point markers */
+  .debug-marker {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 99;
+    pointer-events: none;
+  }
+  .debug-marker::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 14px;
+    top: -4px;
+    font: 11px/1 monospace;
+    color: #fff;
+    background: rgba(0,0,0,0.6);
+    padding: 2px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
   }
 </style>
 </head>
@@ -228,6 +256,9 @@
   <!-- Room Scene (Background-1 interaction) -->
   <div id="room-scene">
     <img id="room-bg" src="assets/Background-1.png" alt="Room background">
+    <img id="room-bed-cat" class="room-object" src="assets/Cat-open-eye.png" alt="Cat on bed">
+    <img id="room-hat" class="room-object" src="assets/Hat-1.png" alt="Hat on wall">
+    <img id="room-stand-cat" class="room-object" src="assets/Cat-stand.png" alt="Standing cat" style="display:none">
   </div>
 
   <!-- Scene 1 (hidden while building room scene) -->
@@ -263,13 +294,20 @@ const CONFIG = {
   // --- Background ---
   bgScale: 0.5,   // Background-1 rendered at 50% of its native size
 
-  // --- Object anchors (% of background bounds) ---
-  bedCatAnchor:   { x: 0.72, y: 0.55 },  // cat sleeping on bed
-  hatAnchor:      { x: 0.25, y: 0.40 },  // hat item location
-  standCatAnchor: { x: 0.15, y: 0.75 },  // cat standing position
+  // --- Object anchors (centre of sprite, % of background bounds) ---
+  bedCatAnchor:   { x: 0.10, y: 0.50 },  // cat reading on bed
+  hatAnchor:      { x: 0.45, y: 0.22 },  // hat on wall hooks
+  standCatAnchor: { x: 0.58, y: 0.72 },  // cat standing near cabinet
+
+  // --- Object sizes (height as fraction of background height) ---
+  objectScale: {
+    bedCat:   0.28,
+    hat:      0.12,
+    standCat: 0.32,
+  },
 
   // --- Door trigger zone (% of background bounds) ---
-  doorZone: { x: 0.88, y: 0.30, width: 0.10, height: 0.45 },
+  doorZone: { x: 0.85, y: 0.08, width: 0.13, height: 0.72 },
 
   // --- Timing (ms unless noted) ---
   timing: {
@@ -456,9 +494,14 @@ const CONFIG = {
 
 // ============================================================
 // ROOM SCENE — Background-1 scaled to 50 % of stage, centred.
+// Objects placed relative to background bounds.
 // ============================================================
 (function () {
-  const roomBg = document.getElementById('room-bg');
+  const roomBg       = document.getElementById('room-bg');
+  const roomBedCat   = document.getElementById('room-bed-cat');
+  const roomHat      = document.getElementById('room-hat');
+  const roomStandCat = document.getElementById('room-stand-cat');
+  const roomScene    = document.getElementById('room-scene');
 
   // bgBounds: the computed pixel rect of Background-1 on screen.
   // All room objects will be placed relative to this.
@@ -467,55 +510,104 @@ const CONFIG = {
   // Expose for future modules & console debugging
   window.bgBounds = bgBounds;
 
-  // ---- Layout the background ----
+  // ---- Place a single object relative to bgBounds ----
+  // anchor = {x,y} in 0..1 bg-local coords (centre of sprite)
+  // heightFrac = sprite height as fraction of bg height
+  function placeObject(el, anchor, heightFrac) {
+    if (!el || !bgBounds.w) return;
+    var natW = el.naturalWidth;
+    var natH = el.naturalHeight;
+    if (!natW || !natH) return;
+
+    var h = bgBounds.h * heightFrac;
+    var w = h * (natW / natH);
+
+    // Anchor = centre of sprite in bg-local coords → screen px
+    var cx = bgBounds.x + bgBounds.w * anchor.x;
+    var cy = bgBounds.y + bgBounds.h * anchor.y;
+
+    el.style.width  = Math.round(w) + 'px';
+    el.style.height = Math.round(h) + 'px';
+    el.style.left   = Math.round(cx - w / 2) + 'px';
+    el.style.top    = Math.round(cy - h / 2) + 'px';
+  }
+
+  // ---- Layout background ----
   function layoutBackground() {
-    const sw = window.innerWidth;
-    const sh = window.innerHeight;
+    var sw = window.innerWidth;
+    var sh = window.innerHeight;
     CONFIG.stageWidth  = sw;
     CONFIG.stageHeight = sh;
 
-    const natW = roomBg.naturalWidth;
-    const natH = roomBg.naturalHeight;
+    var natW = roomBg.naturalWidth;
+    var natH = roomBg.naturalHeight;
     if (!natW || !natH) return;
 
     // Target box is bgScale of the stage
-    const maxW = sw * CONFIG.bgScale;
-    const maxH = sh * CONFIG.bgScale;
+    var maxW = sw * CONFIG.bgScale;
+    var maxH = sh * CONFIG.bgScale;
 
     // Fit (contain) the image inside that box
-    const scale = Math.min(maxW / natW, maxH / natH);
-    const w = Math.round(natW * scale);
-    const h = Math.round(natH * scale);
+    var scale = Math.min(maxW / natW, maxH / natH);
+    var w = Math.round(natW * scale);
+    var h = Math.round(natH * scale);
 
     // Centre on stage
-    const x = Math.round((sw - w) / 2);
-    const y = Math.round((sh - h) / 2);
+    var x = Math.round((sw - w) / 2);
+    var y = Math.round((sh - h) / 2);
 
-    // Store
     bgBounds.x = x;
     bgBounds.y = y;
     bgBounds.w = w;
     bgBounds.h = h;
 
-    // Apply
     roomBg.style.left   = x + 'px';
     roomBg.style.top    = y + 'px';
     roomBg.style.width  = w + 'px';
     roomBg.style.height = h + 'px';
 
-    // Debug visuals
+    // Debug outline on bg
     if (CONFIG.debugMode) {
       roomBg.classList.add('debug-outline');
     } else {
       roomBg.classList.remove('debug-outline');
     }
-
-    debugLog();
   }
 
-  // ---- Debug helper ----
-  function debugLog() {
-    if (!CONFIG.debugMode) return;
+  // ---- Layout all room objects ----
+  function layoutObjects() {
+    placeObject(roomBedCat,   CONFIG.bedCatAnchor,   CONFIG.objectScale.bedCat);
+    placeObject(roomHat,      CONFIG.hatAnchor,       CONFIG.objectScale.hat);
+    placeObject(roomStandCat, CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
+  }
+
+  // ---- Debug markers ----
+  var markers = [];
+
+  function updateDebugMarkers() {
+    // Remove old markers
+    markers.forEach(function (m) { m.remove(); });
+    markers = [];
+
+    if (!CONFIG.debugMode || !bgBounds.w) return;
+
+    var anchors = [
+      { anchor: CONFIG.bedCatAnchor,   color: '#ff4488', label: 'bedCat'   },
+      { anchor: CONFIG.hatAnchor,      color: '#ffdd00', label: 'hat'      },
+      { anchor: CONFIG.standCatAnchor, color: '#44ddff', label: 'standCat' },
+    ];
+
+    anchors.forEach(function (a) {
+      var dot = document.createElement('div');
+      dot.className = 'debug-marker';
+      dot.style.background = a.color;
+      dot.style.left = Math.round(bgBounds.x + bgBounds.w * a.anchor.x) + 'px';
+      dot.style.top  = Math.round(bgBounds.y + bgBounds.h * a.anchor.y) + 'px';
+      dot.setAttribute('data-label', a.label);
+      roomScene.appendChild(dot);
+      markers.push(dot);
+    });
+
     console.log(
       '[Room DEBUG] stage: ' + CONFIG.stageWidth + 'x' + CONFIG.stageHeight +
       '  |  bg: x=' + bgBounds.x + ' y=' + bgBounds.y +
@@ -523,23 +615,44 @@ const CONFIG = {
     );
   }
 
-  // Expose a handy console helper: call debug() to dump bounds any time
+  // ---- Full layout pass ----
+  function layout() {
+    layoutBackground();
+    layoutObjects();
+    updateDebugMarkers();
+  }
+
+  // Expose console helper
   window.debug = function () {
     console.table({
-      stage:    { width: CONFIG.stageWidth, height: CONFIG.stageHeight },
-      bgBounds: { x: bgBounds.x, y: bgBounds.y, width: bgBounds.w, height: bgBounds.h },
-      bgScale:  { value: CONFIG.bgScale },
+      stage:      { width: CONFIG.stageWidth, height: CONFIG.stageHeight },
+      bgBounds:   { x: bgBounds.x, y: bgBounds.y, width: bgBounds.w, height: bgBounds.h },
+      bgScale:    { value: CONFIG.bgScale },
+      bedCat:     CONFIG.bedCatAnchor,
+      hat:        CONFIG.hatAnchor,
+      standCat:   CONFIG.standCatAnchor,
     });
   };
 
-  // ---- Init ----
-  if (roomBg.complete && roomBg.naturalWidth) {
-    layoutBackground();
-  } else {
-    roomBg.addEventListener('load', layoutBackground);
+  // ---- Init: wait for ALL images to load before layout ----
+  var images = [roomBg, roomBedCat, roomHat, roomStandCat];
+  var loaded = 0;
+  var total  = images.length;
+
+  function onImageReady() {
+    loaded++;
+    if (loaded >= total) layout();
   }
 
-  window.addEventListener('resize', layoutBackground);
+  images.forEach(function (img) {
+    if (img.complete && img.naturalWidth) {
+      onImageReady();
+    } else {
+      img.addEventListener('load', onImageReady);
+    }
+  });
+
+  window.addEventListener('resize', layout);
 })();
 </script>
 </body>
