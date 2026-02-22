@@ -615,6 +615,39 @@ const CONFIG = {
     );
   }
 
+  // ---- Bed cat blink loop ----
+  var blinkTimer = null;
+  var SRC_OPEN  = 'assets/Cat-open-eye.png';
+  var SRC_CLOSE = 'assets/Cat-close-eye.png';
+
+  // Preload closed-eye image so the swap is instant
+  var preloadClose = new Image();
+  preloadClose.src = SRC_CLOSE;
+
+  function doBlink() {
+    roomBedCat.src = SRC_CLOSE;
+    setTimeout(function () {
+      roomBedCat.src = SRC_OPEN;
+    }, CONFIG.timing.blinkDuration);
+  }
+
+  function startBlink() {
+    stopBlink();
+    blinkTimer = setInterval(doBlink, CONFIG.timing.blinkInterval);
+  }
+
+  function stopBlink() {
+    if (blinkTimer) {
+      clearInterval(blinkTimer);
+      blinkTimer = null;
+    }
+    roomBedCat.src = SRC_OPEN;
+  }
+
+  // Expose for future steps
+  window.startBlink = startBlink;
+  window.stopBlink  = stopBlink;
+
   // ---- Full layout pass ----
   function layout() {
     layoutBackground();
@@ -641,7 +674,10 @@ const CONFIG = {
 
   function onImageReady() {
     loaded++;
-    if (loaded >= total) layout();
+    if (loaded >= total) {
+      layout();
+      startBlink();
+    }
   }
 
   images.forEach(function (img) {
