@@ -253,7 +253,7 @@
   .thought-dot {
     position: absolute;
     background: #fff;
-    border: 2px solid #000;
+    border: 1px solid #000;
     border-radius: 50%;
     z-index: 3;
     opacity: 0;
@@ -263,11 +263,26 @@
   #room-thought-bubble {
     position: absolute;
     background: #fff;
-    border: 2px solid #000;
+    border: 1px solid #000;
     border-radius: 50%;
     z-index: 3;
     opacity: 0;
     transition: opacity 0.3s ease;
+    /* Cloud shape via overlapping radial shadows */
+    box-shadow:
+      calc(var(--bw) *  0.28) calc(var(--bw) * -0.22) 0 calc(var(--bw) * 0.06) #fff,
+      calc(var(--bw) * -0.28) calc(var(--bw) * -0.18) 0 calc(var(--bw) * 0.04) #fff,
+      calc(var(--bw) *  0.32) calc(var(--bw) *  0.12) 0 calc(var(--bw) * 0.03) #fff,
+      calc(var(--bw) * -0.30) calc(var(--bw) *  0.10) 0 calc(var(--bw) * 0.02) #fff,
+      calc(var(--bw) *  0.10) calc(var(--bw) * -0.30) 0 calc(var(--bw) * 0.05) #fff,
+      calc(var(--bw) * -0.12) calc(var(--bw) * -0.28) 0 calc(var(--bw) * 0.04) #fff,
+      /* outline layer (slightly larger, behind white) */
+      calc(var(--bw) *  0.28) calc(var(--bw) * -0.22) 0 calc(var(--bw) * 0.06 + 1px) #000,
+      calc(var(--bw) * -0.28) calc(var(--bw) * -0.18) 0 calc(var(--bw) * 0.04 + 1px) #000,
+      calc(var(--bw) *  0.32) calc(var(--bw) *  0.12) 0 calc(var(--bw) * 0.03 + 1px) #000,
+      calc(var(--bw) * -0.30) calc(var(--bw) *  0.10) 0 calc(var(--bw) * 0.02 + 1px) #000,
+      calc(var(--bw) *  0.10) calc(var(--bw) * -0.30) 0 calc(var(--bw) * 0.05 + 1px) #000,
+      calc(var(--bw) * -0.12) calc(var(--bw) * -0.28) 0 calc(var(--bw) * 0.04 + 1px) #000;
   }
 
   #room-fish {
@@ -656,6 +671,9 @@ const CONFIG = {
     placeCircle(roomThoughtDot1,   CONFIG.thoughtDot1Anchor,   CONFIG.thoughtDot1Size);
     placeCircle(roomThoughtDot2,   CONFIG.thoughtDot2Anchor,   CONFIG.thoughtDot2Size);
     placeCircle(roomThoughtBubble, CONFIG.thoughtBubbleAnchor, CONFIG.thoughtBubbleSize);
+    // Set --bw so cloud box-shadows scale with bubble size
+    var bubbleSize = bgBounds.h * CONFIG.thoughtBubbleSize;
+    roomThoughtBubble.style.setProperty('--bw', Math.round(bubbleSize) + 'px');
     placeObject(roomFish,          CONFIG.fishAnchor,          CONFIG.objectScale.fish);
   }
 
