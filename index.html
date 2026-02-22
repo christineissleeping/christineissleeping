@@ -248,6 +248,37 @@
     border-radius: 2px;
     white-space: nowrap;
   }
+
+  /* Thought bubbles */
+  .thought-dot {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  #room-thought-bubble {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  #room-fish {
+    position: absolute;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  @keyframes fishPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
 </style>
 </head>
 <body>
@@ -259,6 +290,10 @@
     <img id="room-bed-cat" class="room-object" src="assets/Cat-open-eye.png" alt="Cat on bed">
     <img id="room-hat" class="room-object" src="assets/Hat-1.png" alt="Hat on wall">
     <img id="room-stand-cat" class="room-object" src="assets/Cat-stand.png" alt="Standing cat" style="display:none">
+    <div id="room-thought-dot-1" class="thought-dot"></div>
+    <div id="room-thought-dot-2" class="thought-dot"></div>
+    <div id="room-thought-bubble"></div>
+    <img id="room-fish" src="assets/Fish.png" alt="Fish">
   </div>
 
   <!-- Scene 1 (hidden while building room scene) -->
@@ -299,12 +334,24 @@ const CONFIG = {
   hatAnchor:      { x: 0.505, y: 0.33 }, // hat on wall hanger hook
   standCatAnchor: { x: 0.58, y: 0.72 },  // cat standing near cabinet
 
+  // --- Thought bubble anchors (bg-relative, centre of element) ---
+  thoughtDot1Anchor:    { x: 0.16, y: 0.53 },
+  thoughtDot2Anchor:    { x: 0.19, y: 0.46 },
+  thoughtBubbleAnchor:  { x: 0.24, y: 0.35 },
+  fishAnchor:           { x: 0.24, y: 0.35 },
+
   // --- Object sizes (height as fraction of background height) ---
   objectScale: {
     bedCat:   0.252,
     hat:      0.12,
     standCat: 0.32,
+    fish:     0.09,
   },
+
+  // --- Thought bubble sizes (fraction of bg height) ---
+  thoughtDot1Size:    0.02,
+  thoughtDot2Size:    0.035,
+  thoughtBubbleSize:  0.15,
 
   // --- Door trigger zone (% of background bounds) ---
   doorZone: { x: 0.85, y: 0.08, width: 0.13, height: 0.72 },
@@ -315,6 +362,7 @@ const CONFIG = {
     blinkDuration:   200,  // ms eyes stay closed
     bubbleDelay:    1500,  // ms before speech/thought bubble appears
     pulseSpeed:      800,  // ms per pulse cycle for interactive hints
+    bubbleStagger:   400,  // ms between each thought element appearing
     sceneFade:       600,  // ms for scene fade transitions
   },
 
@@ -497,11 +545,18 @@ const CONFIG = {
 // Objects placed relative to background bounds.
 // ============================================================
 (function () {
-  const roomBg       = document.getElementById('room-bg');
-  const roomBedCat   = document.getElementById('room-bed-cat');
-  const roomHat      = document.getElementById('room-hat');
-  const roomStandCat = document.getElementById('room-stand-cat');
-  const roomScene    = document.getElementById('room-scene');
+  const roomBg             = document.getElementById('room-bg');
+  const roomBedCat         = document.getElementById('room-bed-cat');
+  const roomHat            = document.getElementById('room-hat');
+  const roomStandCat       = document.getElementById('room-stand-cat');
+  const roomScene          = document.getElementById('room-scene');
+  const roomThoughtDot1    = document.getElementById('room-thought-dot-1');
+  const roomThoughtDot2    = document.getElementById('room-thought-dot-2');
+  const roomThoughtBubble  = document.getElementById('room-thought-bubble');
+  const roomFish           = document.getElementById('room-fish');
+
+  // ---- Scene state ----
+  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady'
 
   // bgBounds: the computed pixel rect of Background-1 on screen.
   // All room objects will be placed relative to this.
@@ -530,6 +585,18 @@ const CONFIG = {
     el.style.height = Math.round(h) + 'px';
     el.style.left   = Math.round(cx - w / 2) + 'px';
     el.style.top    = Math.round(cy - h / 2) + 'px';
+  }
+
+  // ---- Place a circle div (no naturalWidth) relative to bgBounds ----
+  function placeCircle(el, anchor, sizeFrac) {
+    if (!el || !bgBounds.w) return;
+    var size = bgBounds.h * sizeFrac;
+    var cx = bgBounds.x + bgBounds.w * anchor.x;
+    var cy = bgBounds.y + bgBounds.h * anchor.y;
+    el.style.width  = Math.round(size) + 'px';
+    el.style.height = Math.round(size) + 'px';
+    el.style.left   = Math.round(cx - size / 2) + 'px';
+    el.style.top    = Math.round(cy - size / 2) + 'px';
   }
 
   // ---- Layout background ----
@@ -579,6 +646,15 @@ const CONFIG = {
     placeObject(roomBedCat,   CONFIG.bedCatAnchor,   CONFIG.objectScale.bedCat);
     placeObject(roomHat,      CONFIG.hatAnchor,       CONFIG.objectScale.hat);
     placeObject(roomStandCat, CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
+    layoutBubbles();
+  }
+
+  // ---- Layout thought bubbles + fish (positions even when hidden) ----
+  function layoutBubbles() {
+    placeCircle(roomThoughtDot1,   CONFIG.thoughtDot1Anchor,   CONFIG.thoughtDot1Size);
+    placeCircle(roomThoughtDot2,   CONFIG.thoughtDot2Anchor,   CONFIG.thoughtDot2Size);
+    placeCircle(roomThoughtBubble, CONFIG.thoughtBubbleAnchor, CONFIG.thoughtBubbleSize);
+    placeObject(roomFish,          CONFIG.fishAnchor,          CONFIG.objectScale.fish);
   }
 
   // ---- Debug markers ----
@@ -648,6 +724,41 @@ const CONFIG = {
   window.startBlink = startBlink;
   window.stopBlink  = stopBlink;
 
+  // ---- Bed cat click → thought bubble sequence ----
+  roomBedCat.style.cursor = 'pointer';
+
+  roomBedCat.addEventListener('click', function () {
+    if (roomState !== 'idle') return;
+    roomState = 'thinking';
+    stopBlink();
+    showThoughtSequence();
+  });
+
+  function showThoughtSequence() {
+    var s = CONFIG.timing.bubbleStagger;
+
+    setTimeout(function () {
+      roomThoughtDot1.style.opacity = '1';
+    }, s);
+
+    setTimeout(function () {
+      roomThoughtDot2.style.opacity = '1';
+    }, s * 2);
+
+    setTimeout(function () {
+      roomThoughtBubble.style.opacity = '1';
+    }, s * 3);
+
+    setTimeout(function () {
+      roomFish.style.opacity = '1';
+      roomFish.style.animation = 'fishPulse ' + CONFIG.timing.pulseSpeed + 'ms ease-in-out infinite';
+      roomState = 'fishReady';
+    }, s * 3 + 500);
+  }
+
+  // Expose state for future steps
+  window.getRoomState = function () { return roomState; };
+
   // ---- Full layout pass ----
   function layout() {
     layoutBackground();
@@ -668,7 +779,7 @@ const CONFIG = {
   };
 
   // ---- Init: wait for ALL images to load before layout ----
-  var images = [roomBg, roomBedCat, roomHat, roomStandCat];
+  var images = [roomBg, roomBedCat, roomHat, roomStandCat, roomFish];
   var loaded = 0;
   var total  = images.length;
 
