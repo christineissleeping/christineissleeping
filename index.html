@@ -203,13 +203,35 @@
   .door-glow {
     filter: drop-shadow(0 0 15px rgba(255, 220, 100, 0.8));
   }
+
+  /* ---- Room Scene ---- */
+  #room-scene {
+    position: absolute;
+    inset: 0;
+  }
+
+  #room-bg {
+    position: absolute;
+    display: block;
+  }
+
+  /* Debug: visible outline around background bounds */
+  .debug-outline {
+    outline: 2px dashed rgba(0, 255, 0, 0.7);
+    outline-offset: -1px;
+  }
 </style>
 </head>
 <body>
 <div id="game">
 
-  <!-- Scene 1 -->
-  <div id="scene1">
+  <!-- Room Scene (Background-1 interaction) -->
+  <div id="room-scene">
+    <img id="room-bg" src="assets/Background-1.png" alt="Room background">
+  </div>
+
+  <!-- Scene 1 (hidden while building room scene) -->
+  <div id="scene1" style="display:none">
     <img id="scene1-bg" src="assets/inside-scene2.jpg" alt="Inside scene background">
     <img id="diatom-guy" src="assets/diatom-guy.png" alt="Diatom Guy">
     <img id="diatom-guy-with-hat" src="assets/diatom-guy-with-hat.png" alt="Diatom Guy with Hat">
@@ -430,6 +452,94 @@ const CONFIG = {
       }, 1000);
     }, 400);
   });
+})();
+
+// ============================================================
+// ROOM SCENE — Background-1 scaled to 50 % of stage, centred.
+// ============================================================
+(function () {
+  const roomBg = document.getElementById('room-bg');
+
+  // bgBounds: the computed pixel rect of Background-1 on screen.
+  // All room objects will be placed relative to this.
+  let bgBounds = { x: 0, y: 0, w: 0, h: 0 };
+
+  // Expose for future modules & console debugging
+  window.bgBounds = bgBounds;
+
+  // ---- Layout the background ----
+  function layoutBackground() {
+    const sw = window.innerWidth;
+    const sh = window.innerHeight;
+    CONFIG.stageWidth  = sw;
+    CONFIG.stageHeight = sh;
+
+    const natW = roomBg.naturalWidth;
+    const natH = roomBg.naturalHeight;
+    if (!natW || !natH) return;
+
+    // Target box is bgScale of the stage
+    const maxW = sw * CONFIG.bgScale;
+    const maxH = sh * CONFIG.bgScale;
+
+    // Fit (contain) the image inside that box
+    const scale = Math.min(maxW / natW, maxH / natH);
+    const w = Math.round(natW * scale);
+    const h = Math.round(natH * scale);
+
+    // Centre on stage
+    const x = Math.round((sw - w) / 2);
+    const y = Math.round((sh - h) / 2);
+
+    // Store
+    bgBounds.x = x;
+    bgBounds.y = y;
+    bgBounds.w = w;
+    bgBounds.h = h;
+
+    // Apply
+    roomBg.style.left   = x + 'px';
+    roomBg.style.top    = y + 'px';
+    roomBg.style.width  = w + 'px';
+    roomBg.style.height = h + 'px';
+
+    // Debug visuals
+    if (CONFIG.debugMode) {
+      roomBg.classList.add('debug-outline');
+    } else {
+      roomBg.classList.remove('debug-outline');
+    }
+
+    debugLog();
+  }
+
+  // ---- Debug helper ----
+  function debugLog() {
+    if (!CONFIG.debugMode) return;
+    console.log(
+      '[Room DEBUG] stage: ' + CONFIG.stageWidth + 'x' + CONFIG.stageHeight +
+      '  |  bg: x=' + bgBounds.x + ' y=' + bgBounds.y +
+      ' w=' + bgBounds.w + ' h=' + bgBounds.h
+    );
+  }
+
+  // Expose a handy console helper: call debug() to dump bounds any time
+  window.debug = function () {
+    console.table({
+      stage:    { width: CONFIG.stageWidth, height: CONFIG.stageHeight },
+      bgBounds: { x: bgBounds.x, y: bgBounds.y, width: bgBounds.w, height: bgBounds.h },
+      bgScale:  { value: CONFIG.bgScale },
+    });
+  };
+
+  // ---- Init ----
+  if (roomBg.complete && roomBg.naturalWidth) {
+    layoutBackground();
+  } else {
+    roomBg.addEventListener('load', layoutBackground);
+  }
+
+  window.addEventListener('resize', layoutBackground);
 })();
 </script>
 </body>
