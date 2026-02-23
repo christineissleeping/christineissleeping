@@ -326,7 +326,7 @@
     <img id="room-bed-cat" class="room-object" src="assets/Cat-open-eye.png" alt="Cat on bed">
     <img id="room-hat" class="room-object" src="assets/Hat-1.png" alt="Hat on wall">
     <img id="room-stand-cat" class="room-object" src="assets/Cat-stand.png" alt="Standing cat" style="display:none">
-    <img id="room-stand-cat-hat" class="room-object" src="assets/Cat-stand-with-hat.png" alt="Standing cat with hat" style="display:none">
+    <img id="room-cat-hat-overlay" class="room-object" src="assets/Hat-1.png" alt="Hat on cat" style="display:none">
     <div id="room-thought-dot-1" class="thought-dot"></div>
     <div id="room-thought-dot-2" class="thought-dot"></div>
     <div id="room-thought-bubble"></div>
@@ -369,7 +369,8 @@ const CONFIG = {
   // --- Object anchors (centre of sprite, % of background bounds) ---
   bedCatAnchor:   { x: 0.10, y: 0.67 },  // cat reading on bed (lowered)
   hatAnchor:      { x: 0.505, y: 0.33 }, // hat on wall hanger hook
-  standCatAnchor: { x: 0.52, y: 0.72 },  // cat standing near cabinet
+  standCatAnchor:      { x: 0.52, y: 0.72 },  // cat standing near cabinet
+  catHatOverlayAnchor: { x: 0.52, y: 0.59 },  // hat sitting on standing cat's head
 
   // --- Thought bubble anchors (bg-relative, centre of element) ---
   thoughtDot1Anchor:    { x: 0.16, y: 0.53 },
@@ -381,8 +382,9 @@ const CONFIG = {
   objectScale: {
     bedCat:   0.252,
     hat:      0.12,
-    standCat: 0.27,
-    fish:     0.09,
+    standCat:      0.27,
+    catHatOverlay: 0.08,
+    fish:          0.09,
   },
 
   // --- Thought bubble sizes (fraction of bg height) ---
@@ -591,7 +593,7 @@ const CONFIG = {
   const roomThoughtDot2    = document.getElementById('room-thought-dot-2');
   const roomThoughtBubble  = document.getElementById('room-thought-bubble');
   const roomFish           = document.getElementById('room-fish');
-  const roomStandCatHat    = document.getElementById('room-stand-cat-hat');
+  const roomCatHatOverlay  = document.getElementById('room-cat-hat-overlay');
 
   // ---- Scene state ----
   var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady' | 'standing' | 'hatReady' | 'gettingHat' | 'dragReady' | 'dragging' | 'doorTriggered'
@@ -683,8 +685,8 @@ const CONFIG = {
   function layoutObjects() {
     placeObject(roomBedCat,   CONFIG.bedCatAnchor,   CONFIG.objectScale.bedCat);
     placeObject(roomHat,      CONFIG.hatAnchor,       CONFIG.objectScale.hat);
-    placeObject(roomStandCat,    CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
-    placeObject(roomStandCatHat, CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
+    placeObject(roomStandCat,      CONFIG.standCatAnchor,      CONFIG.objectScale.standCat);
+    placeObject(roomCatHatOverlay, CONFIG.catHatOverlayAnchor, CONFIG.objectScale.catHatOverlay);
     layoutBubbles();
   }
 
@@ -848,7 +850,7 @@ const CONFIG = {
     }, 400);
   });
 
-  // ---- Hat click → cat gets hat (atomic swap, no ghosting) ----
+  // ---- Hat click → hat overlay fades in on cat (body stays still) ----
   roomHat.addEventListener('click', function () {
     if (roomState !== 'hatReady') return;
     roomState = 'gettingHat';
@@ -860,25 +862,30 @@ const CONFIG = {
     roomHat.style.transition = 'opacity 0.6s ease';
     roomHat.style.opacity = '0';
 
-    // Atomic swap in one frame: hide Cat-stand, show Cat-stand-with-hat.
-    // Both run synchronously so the browser paints only one cat per frame.
-    // The body is identical between sprites — only the hat appears.
-    roomStandCat.style.display = 'none';
-    roomStandCatHat.style.display = 'block';
-    roomStandCatHat.style.transition = 'none';
-    roomStandCatHat.style.opacity = '1';
+    // Fade in hat overlay on cat's head.
+    // Cat-stand stays untouched — only the hat layer appears.
+    roomCatHatOverlay.style.display = 'block';
+    roomCatHatOverlay.style.opacity = '0';
+    roomCatHatOverlay.style.transition = 'opacity 0.6s ease';
+    roomCatHatOverlay.offsetHeight; // force reflow
+    roomCatHatOverlay.style.opacity = '1';
 
     setTimeout(function () {
       roomHat.style.display = 'none';
-      roomStandCatHat.style.cursor = 'grab';
+      roomStandCat.style.cursor = 'grab';
       roomState = 'dragReady';
     }, 700);
   });
 
-  // ---- Cat-with-hat drag + door zone detection ----
+  // ---- Cat + hat-overlay drag + door zone detection ----
+  // Drag moves both roomStandCat and roomCatHatOverlay as a unit.
   var roomDragging = false;
   var roomDragOffsetX = 0;
   var roomDragOffsetY = 0;
+  var roomDragOrigCatLeft = 0;
+  var roomDragOrigCatTop  = 0;
+  var roomDragOrigHatLeft = 0;
+  var roomDragOrigHatTop  = 0;
 
   // Convert CONFIG.doorZone (bg-relative) to screen pixel rect
   function getDoorZoneRect() {
@@ -902,15 +909,23 @@ const CONFIG = {
     roomDragging = true;
     roomState = 'dragging';
 
-    var rect = roomStandCatHat.getBoundingClientRect();
+    var rect = roomStandCat.getBoundingClientRect();
     var clientX = e.touches ? e.touches[0].clientX : e.clientX;
     var clientY = e.touches ? e.touches[0].clientY : e.clientY;
     roomDragOffsetX = clientX - rect.left;
     roomDragOffsetY = clientY - rect.top;
 
-    roomStandCatHat.style.cursor = 'grabbing';
-    roomStandCatHat.style.zIndex = '10';
-    roomStandCatHat.style.transition = 'none';
+    // Store original pixel positions for delta tracking
+    roomDragOrigCatLeft = parseFloat(roomStandCat.style.left);
+    roomDragOrigCatTop  = parseFloat(roomStandCat.style.top);
+    roomDragOrigHatLeft = parseFloat(roomCatHatOverlay.style.left);
+    roomDragOrigHatTop  = parseFloat(roomCatHatOverlay.style.top);
+
+    roomStandCat.style.cursor = 'grabbing';
+    roomStandCat.style.zIndex = '10';
+    roomCatHatOverlay.style.zIndex = '11';
+    roomStandCat.style.transition = 'none';
+    roomCatHatOverlay.style.transition = 'none';
 
     e.preventDefault();
   }
@@ -920,18 +935,26 @@ const CONFIG = {
     var clientX = e.touches ? e.touches[0].clientX : e.clientX;
     var clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-    roomStandCatHat.style.left = (clientX - roomDragOffsetX) + 'px';
-    roomStandCatHat.style.top  = (clientY - roomDragOffsetY) + 'px';
+    var newLeft = clientX - roomDragOffsetX;
+    var newTop  = clientY - roomDragOffsetY;
+    var dx = newLeft - roomDragOrigCatLeft;
+    var dy = newTop  - roomDragOrigCatTop;
+
+    // Move both cat body and hat overlay together
+    roomStandCat.style.left      = newLeft + 'px';
+    roomStandCat.style.top       = newTop  + 'px';
+    roomCatHatOverlay.style.left = (roomDragOrigHatLeft + dx) + 'px';
+    roomCatHatOverlay.style.top  = (roomDragOrigHatTop  + dy) + 'px';
 
     // Check if cat center is inside door zone
-    var rect = roomStandCatHat.getBoundingClientRect();
-    var cx = rect.left + rect.width / 2;
-    var cy = rect.top + rect.height / 2;
+    var catRect = roomStandCat.getBoundingClientRect();
+    var cx = catRect.left + catRect.width / 2;
+    var cy = catRect.top  + catRect.height / 2;
 
     if (isInsideDoorZone(cx, cy)) {
       roomDragging = false;
       roomState = 'doorTriggered';
-      roomStandCatHat.style.cursor = 'default';
+      roomStandCat.style.cursor = 'default';
       console.log('door triggered');
     }
 
@@ -943,25 +966,30 @@ const CONFIG = {
     roomDragging = false;
 
     // Check final position
-    var rect = roomStandCatHat.getBoundingClientRect();
-    var cx = rect.left + rect.width / 2;
-    var cy = rect.top + rect.height / 2;
+    var catRect = roomStandCat.getBoundingClientRect();
+    var cx = catRect.left + catRect.width / 2;
+    var cy = catRect.top  + catRect.height / 2;
 
     if (isInsideDoorZone(cx, cy)) {
       roomState = 'doorTriggered';
-      roomStandCatHat.style.cursor = 'default';
+      roomStandCat.style.cursor = 'default';
       console.log('door triggered');
     } else {
-      // Snap back to original position
+      // Snap back both elements to original positions
       roomState = 'dragReady';
-      placeObject(roomStandCatHat, CONFIG.standCatAnchor, CONFIG.objectScale.standCat);
-      roomStandCatHat.style.cursor = 'grab';
-      roomStandCatHat.style.zIndex = '2';
+      placeObject(roomStandCat,      CONFIG.standCatAnchor,      CONFIG.objectScale.standCat);
+      placeObject(roomCatHatOverlay, CONFIG.catHatOverlayAnchor, CONFIG.objectScale.catHatOverlay);
+      roomStandCat.style.cursor = 'grab';
+      roomStandCat.style.zIndex = '2';
+      roomCatHatOverlay.style.zIndex = '3';
     }
   }
 
-  roomStandCatHat.addEventListener('mousedown', roomStartDrag);
-  roomStandCatHat.addEventListener('touchstart', roomStartDrag);
+  // Listen on both cat body and hat overlay so clicking either starts drag
+  roomStandCat.addEventListener('mousedown', roomStartDrag);
+  roomStandCat.addEventListener('touchstart', roomStartDrag);
+  roomCatHatOverlay.addEventListener('mousedown', roomStartDrag);
+  roomCatHatOverlay.addEventListener('touchstart', roomStartDrag);
   document.addEventListener('mousemove', roomMoveDrag);
   document.addEventListener('touchmove', function (e) {
     if (roomDragging) roomMoveDrag(e);
@@ -992,7 +1020,7 @@ const CONFIG = {
   };
 
   // ---- Init: wait for ALL images to load before layout ----
-  var images = [roomBg, roomBedCat, roomHat, roomStandCat, roomStandCatHat, roomFish];
+  var images = [roomBg, roomBedCat, roomHat, roomStandCat, roomCatHatOverlay, roomFish];
   var loaded = 0;
   var total  = images.length;
 
