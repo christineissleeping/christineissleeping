@@ -850,6 +850,7 @@ const CONFIG = {
 
     setTimeout(function () {
       roomHat.style.display = 'none';
+      roomStandCat.style.display = 'none';  // remove underlying cat to prevent ghosting
       roomState = 'dragReady';
     }, 700);
   });
