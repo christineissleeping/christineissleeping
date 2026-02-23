@@ -306,6 +306,15 @@
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.12); }
   }
+
+  /* Debug: door zone overlay */
+  .debug-door-zone {
+    position: absolute;
+    border: 2px dashed rgba(255, 100, 0, 0.7);
+    background: rgba(255, 100, 0, 0.1);
+    z-index: 98;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -585,7 +594,7 @@ const CONFIG = {
   const roomStandCatHat    = document.getElementById('room-stand-cat-hat');
 
   // ---- Scene state ----
-  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady' | 'standing' | 'hatReady' | 'gettingHat' | 'dragReady'
+  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady' | 'standing' | 'hatReady' | 'gettingHat' | 'dragReady' | 'dragging' | 'doorTriggered'
 
   // bgBounds: the computed pixel rect of Background-1 on screen.
   // All room objects will be placed relative to this.
@@ -716,6 +725,17 @@ const CONFIG = {
       roomScene.appendChild(dot);
       markers.push(dot);
     });
+
+    // Door zone rectangle
+    var dzr = getDoorZoneRect();
+    var dzDiv = document.createElement('div');
+    dzDiv.className = 'debug-door-zone';
+    dzDiv.style.left   = Math.round(dzr.left)   + 'px';
+    dzDiv.style.top    = Math.round(dzr.top)    + 'px';
+    dzDiv.style.width  = Math.round(dzr.width)  + 'px';
+    dzDiv.style.height = Math.round(dzr.height) + 'px';
+    roomScene.appendChild(dzDiv);
+    markers.push(dzDiv);
 
     console.log(
       '[Room DEBUG] stage: ' + CONFIG.stageWidth + 'x' + CONFIG.stageHeight +
@@ -851,9 +871,104 @@ const CONFIG = {
     setTimeout(function () {
       roomHat.style.display = 'none';
       roomStandCat.style.display = 'none';  // remove underlying cat to prevent ghosting
+      roomStandCatHat.style.cursor = 'grab';
       roomState = 'dragReady';
     }, 700);
   });
+
+  // ---- Cat-with-hat drag + door zone detection ----
+  var roomDragging = false;
+  var roomDragOffsetX = 0;
+  var roomDragOffsetY = 0;
+
+  // Convert CONFIG.doorZone (bg-relative) to screen pixel rect
+  function getDoorZoneRect() {
+    var dz = CONFIG.doorZone;
+    return {
+      left:   bgBounds.x + bgBounds.w * dz.x,
+      top:    bgBounds.y + bgBounds.h * dz.y,
+      width:  bgBounds.w * dz.width,
+      height: bgBounds.h * dz.height,
+    };
+  }
+
+  function isInsideDoorZone(cx, cy) {
+    var r = getDoorZoneRect();
+    return cx >= r.left && cx <= r.left + r.width &&
+           cy >= r.top  && cy <= r.top  + r.height;
+  }
+
+  function roomStartDrag(e) {
+    if (roomState !== 'dragReady') return;
+    roomDragging = true;
+    roomState = 'dragging';
+
+    var rect = roomStandCatHat.getBoundingClientRect();
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    roomDragOffsetX = clientX - rect.left;
+    roomDragOffsetY = clientY - rect.top;
+
+    roomStandCatHat.style.cursor = 'grabbing';
+    roomStandCatHat.style.zIndex = '10';
+    roomStandCatHat.style.transition = 'none';
+
+    e.preventDefault();
+  }
+
+  function roomMoveDrag(e) {
+    if (!roomDragging) return;
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    roomStandCatHat.style.left = (clientX - roomDragOffsetX) + 'px';
+    roomStandCatHat.style.top  = (clientY - roomDragOffsetY) + 'px';
+
+    // Check if cat center is inside door zone
+    var rect = roomStandCatHat.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+
+    if (isInsideDoorZone(cx, cy)) {
+      roomDragging = false;
+      roomState = 'doorTriggered';
+      roomStandCatHat.style.cursor = 'default';
+      console.log('door triggered');
+    }
+
+    e.preventDefault();
+  }
+
+  function roomEndDrag(e) {
+    if (!roomDragging) return;
+    roomDragging = false;
+
+    // Check final position
+    var rect = roomStandCatHat.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+
+    if (isInsideDoorZone(cx, cy)) {
+      roomState = 'doorTriggered';
+      roomStandCatHat.style.cursor = 'default';
+      console.log('door triggered');
+    } else {
+      // Snap back to original position
+      roomState = 'dragReady';
+      placeObject(roomStandCatHat, CONFIG.standCatAnchor, CONFIG.objectScale.standCat);
+      roomStandCatHat.style.cursor = 'grab';
+      roomStandCatHat.style.zIndex = '2';
+    }
+  }
+
+  roomStandCatHat.addEventListener('mousedown', roomStartDrag);
+  roomStandCatHat.addEventListener('touchstart', roomStartDrag);
+  document.addEventListener('mousemove', roomMoveDrag);
+  document.addEventListener('touchmove', function (e) {
+    if (roomDragging) roomMoveDrag(e);
+  }, { passive: false });
+  document.addEventListener('mouseup', roomEndDrag);
+  document.addEventListener('touchend', roomEndDrag);
 
   // Expose state for future steps
   window.getRoomState = function () { return roomState; };
