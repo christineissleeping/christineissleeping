@@ -301,6 +301,11 @@
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.15); }
   }
+
+  @keyframes hatPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
 </style>
 </head>
 <body>
@@ -578,7 +583,7 @@ const CONFIG = {
   const roomFish           = document.getElementById('room-fish');
 
   // ---- Scene state ----
-  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady'
+  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady' | 'standing' | 'hatReady'
 
   // bgBounds: the computed pixel rect of Background-1 on screen.
   // All room objects will be placed relative to this.
@@ -776,10 +781,49 @@ const CONFIG = {
 
     setTimeout(function () {
       roomFish.style.opacity = '1';
+      roomFish.style.cursor = 'pointer';
       roomFish.style.animation = 'fishPulse ' + CONFIG.timing.pulseSpeed + 'ms ease-in-out infinite';
       roomState = 'fishReady';
     }, s * 3 + 500);
   }
+
+  // ---- Fish click → standing cat + hat pulses ----
+  roomFish.addEventListener('click', function () {
+    if (roomState !== 'fishReady') return;
+    roomState = 'standing';
+
+    // Hide bed cat
+    roomBedCat.style.transition = 'opacity 0.3s ease';
+    roomBedCat.style.opacity = '0';
+
+    // Hide thought bubbles + fish
+    roomThoughtDot1.style.opacity = '0';
+    roomThoughtDot2.style.opacity = '0';
+    roomThoughtBubble.style.opacity = '0';
+    roomFish.style.opacity = '0';
+    roomFish.style.animation = '';
+
+    setTimeout(function () {
+      roomBedCat.style.display = 'none';
+      roomThoughtDot1.style.display = 'none';
+      roomThoughtDot2.style.display = 'none';
+      roomThoughtBubble.style.display = 'none';
+      roomFish.style.display = 'none';
+
+      // Show standing cat
+      roomStandCat.style.display = 'block';
+      roomStandCat.style.opacity = '0';
+      roomStandCat.style.transition = 'opacity 0.4s ease';
+      // Force reflow
+      roomStandCat.offsetHeight;
+      roomStandCat.style.opacity = '1';
+
+      // Start hat pulsing
+      roomHat.style.cursor = 'pointer';
+      roomHat.style.animation = 'hatPulse ' + CONFIG.timing.pulseSpeed + 'ms ease-in-out infinite';
+      roomState = 'hatReady';
+    }, 400);
+  });
 
   // Expose state for future steps
   window.getRoomState = function () { return roomState; };
