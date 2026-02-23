@@ -330,7 +330,7 @@
     <img id="room-bed-cat" class="room-object" src="assets/Cat-open-eye.png" alt="Cat on bed">
     <img id="room-hat" class="room-object" src="assets/Hat-1.png" alt="Hat on wall">
     <img id="room-stand-cat" class="room-object" src="assets/Cat-stand.png" alt="Standing cat" style="display:none">
-    <img id="room-cat-hat-overlay" class="room-object" src="assets/Hat-1.png" alt="Hat on cat" style="display:none">
+    <img id="room-cat-hat-overlay" class="room-object" src="assets/Hat-2.png" alt="Hat on cat" style="display:none">
     <div id="room-thought-dot-1" class="thought-dot"></div>
     <div id="room-thought-dot-2" class="thought-dot"></div>
     <div id="room-thought-bubble"></div>
@@ -390,9 +390,11 @@ const CONFIG = {
     bedCat:   0.252,
     hat:      0.12,
     standCat:      0.27,
-    catHatOverlay: 0.08,
     fish:          0.09,
   },
+
+  // Hat overlay rendered at a fraction of its natural pixel size
+  catHatOverlayNaturalScale: 0.5,
 
   // --- Thought bubble sizes (fraction of bg height) ---
   thoughtDot1Size:    0.02,
@@ -634,6 +636,26 @@ const CONFIG = {
     el.style.top    = Math.round(cy - h / 2) + 'px';
   }
 
+  // ---- Place an object at a fraction of its natural pixel size ----
+  // anchor = {x,y} in 0..1 bg-local coords (centre of sprite)
+  // scale  = multiplier on natural size (e.g. 0.5 = 50%)
+  function placeObjectNaturalScale(el, anchor, scale) {
+    if (!el || !bgBounds.w) return;
+    var natW = el.naturalWidth;
+    var natH = el.naturalHeight;
+    if (!natW || !natH) return;
+
+    var w = natW * scale;
+    var h = natH * scale;
+    var cx = bgBounds.x + bgBounds.w * anchor.x;
+    var cy = bgBounds.y + bgBounds.h * anchor.y;
+
+    el.style.width  = Math.round(w) + 'px';
+    el.style.height = Math.round(h) + 'px';
+    el.style.left   = Math.round(cx - w / 2) + 'px';
+    el.style.top    = Math.round(cy - h / 2) + 'px';
+  }
+
   // ---- Place a circle div (no naturalWidth) relative to bgBounds ----
   function placeCircle(el, anchor, sizeFrac) {
     if (!el || !bgBounds.w) return;
@@ -701,7 +723,7 @@ const CONFIG = {
     placeObject(roomBedCat,   CONFIG.bedCatAnchor,   CONFIG.objectScale.bedCat);
     placeObject(roomHat,      CONFIG.hatAnchor,       CONFIG.objectScale.hat);
     placeObject(roomStandCat,      CONFIG.standCatAnchor, CONFIG.objectScale.standCat);
-    placeObject(roomCatHatOverlay, getCatHatAnchor(),     CONFIG.objectScale.catHatOverlay);
+    placeObjectNaturalScale(roomCatHatOverlay, getCatHatAnchor(), CONFIG.catHatOverlayNaturalScale);
     layoutBubbles();
   }
 
@@ -877,12 +899,9 @@ const CONFIG = {
     roomHat.style.transition = 'opacity 0.6s ease';
     roomHat.style.opacity = '0';
 
-    // Fade in hat overlay on cat's head.
+    // Instant hat appearance on cat's head.
     // Cat-stand stays untouched — only the hat layer appears.
     roomCatHatOverlay.style.display = 'block';
-    roomCatHatOverlay.style.opacity = '0';
-    roomCatHatOverlay.style.transition = 'opacity 0.6s ease';
-    roomCatHatOverlay.offsetHeight; // force reflow
     roomCatHatOverlay.style.opacity = '1';
 
     setTimeout(function () {
@@ -993,7 +1012,7 @@ const CONFIG = {
       // Snap back both elements to original positions
       roomState = 'dragReady';
       placeObject(roomStandCat,      CONFIG.standCatAnchor, CONFIG.objectScale.standCat);
-      placeObject(roomCatHatOverlay, getCatHatAnchor(),     CONFIG.objectScale.catHatOverlay);
+      placeObjectNaturalScale(roomCatHatOverlay, getCatHatAnchor(), CONFIG.catHatOverlayNaturalScale);
       roomStandCat.style.cursor = 'grab';
       roomStandCat.style.zIndex = '2';
       roomCatHatOverlay.style.zIndex = '3';
@@ -1048,10 +1067,11 @@ const CONFIG = {
   }
 
   images.forEach(function (img) {
-    if (img.complete && img.naturalWidth) {
+    if (img.complete) {
       onImageReady();
     } else {
       img.addEventListener('load', onImageReady);
+      img.addEventListener('error', onImageReady); // still count so scene initializes
     }
   });
 
