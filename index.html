@@ -848,7 +848,7 @@ const CONFIG = {
     }, 400);
   });
 
-  // ---- Hat click → cat gets hat (crossfade to avoid body flicker) ----
+  // ---- Hat click → cat gets hat (atomic swap, no ghosting) ----
   roomHat.addEventListener('click', function () {
     if (roomState !== 'hatReady') return;
     roomState = 'gettingHat';
@@ -860,17 +860,16 @@ const CONFIG = {
     roomHat.style.transition = 'opacity 0.6s ease';
     roomHat.style.opacity = '0';
 
-    // Layer Cat-stand-with-hat exactly over Cat-stand, fade it in.
-    // Cat-stand stays visible underneath → no body flicker.
+    // Atomic swap in one frame: hide Cat-stand, show Cat-stand-with-hat.
+    // Both run synchronously so the browser paints only one cat per frame.
+    // The body is identical between sprites — only the hat appears.
+    roomStandCat.style.display = 'none';
     roomStandCatHat.style.display = 'block';
-    roomStandCatHat.style.opacity = '0';
-    roomStandCatHat.style.transition = 'opacity 0.6s ease';
-    roomStandCatHat.offsetHeight; // force reflow
+    roomStandCatHat.style.transition = 'none';
     roomStandCatHat.style.opacity = '1';
 
     setTimeout(function () {
       roomHat.style.display = 'none';
-      roomStandCat.style.display = 'none';  // remove underlying cat to prevent ghosting
       roomStandCatHat.style.cursor = 'grab';
       roomState = 'dragReady';
     }, 700);
