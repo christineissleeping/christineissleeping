@@ -290,6 +290,10 @@
       0 0 0 1px #000;
   }
 
+  #room-cat-hat-overlay {
+    z-index: 3;
+  }
+
   #room-fish {
     position: absolute;
     z-index: 4;
@@ -369,8 +373,11 @@ const CONFIG = {
   // --- Object anchors (centre of sprite, % of background bounds) ---
   bedCatAnchor:   { x: 0.10, y: 0.67 },  // cat reading on bed (lowered)
   hatAnchor:      { x: 0.505, y: 0.33 }, // hat on wall hanger hook
-  standCatAnchor:      { x: 0.52, y: 0.72 },  // cat standing near cabinet
-  catHatOverlayAnchor: { x: 0.52, y: 0.59 },  // hat sitting on standing cat's head
+  standCatAnchor: { x: 0.52, y: 0.72 },  // cat standing near cabinet
+
+  // Hat-on-cat offset: applied relative to standCatAnchor so the
+  // overlay always tracks the cat body exactly.
+  catHatOffset: { dx: 0, dy: -0.13 },
 
   // --- Thought bubble anchors (bg-relative, centre of element) ---
   thoughtDot1Anchor:    { x: 0.16, y: 0.53 },
@@ -639,6 +646,14 @@ const CONFIG = {
     el.style.top    = Math.round(cy - size / 2) + 'px';
   }
 
+  // ---- Compute hat-on-cat anchor from standing cat anchor + offset ----
+  function getCatHatAnchor() {
+    return {
+      x: CONFIG.standCatAnchor.x + CONFIG.catHatOffset.dx,
+      y: CONFIG.standCatAnchor.y + CONFIG.catHatOffset.dy,
+    };
+  }
+
   // ---- Layout background ----
   function layoutBackground() {
     var sw = window.innerWidth;
@@ -685,8 +700,8 @@ const CONFIG = {
   function layoutObjects() {
     placeObject(roomBedCat,   CONFIG.bedCatAnchor,   CONFIG.objectScale.bedCat);
     placeObject(roomHat,      CONFIG.hatAnchor,       CONFIG.objectScale.hat);
-    placeObject(roomStandCat,      CONFIG.standCatAnchor,      CONFIG.objectScale.standCat);
-    placeObject(roomCatHatOverlay, CONFIG.catHatOverlayAnchor, CONFIG.objectScale.catHatOverlay);
+    placeObject(roomStandCat,      CONFIG.standCatAnchor, CONFIG.objectScale.standCat);
+    placeObject(roomCatHatOverlay, getCatHatAnchor(),     CONFIG.objectScale.catHatOverlay);
     layoutBubbles();
   }
 
@@ -977,8 +992,8 @@ const CONFIG = {
     } else {
       // Snap back both elements to original positions
       roomState = 'dragReady';
-      placeObject(roomStandCat,      CONFIG.standCatAnchor,      CONFIG.objectScale.standCat);
-      placeObject(roomCatHatOverlay, CONFIG.catHatOverlayAnchor, CONFIG.objectScale.catHatOverlay);
+      placeObject(roomStandCat,      CONFIG.standCatAnchor, CONFIG.objectScale.standCat);
+      placeObject(roomCatHatOverlay, getCatHatAnchor(),     CONFIG.objectScale.catHatOverlay);
       roomStandCat.style.cursor = 'grab';
       roomStandCat.style.zIndex = '2';
       roomCatHatOverlay.style.zIndex = '3';
