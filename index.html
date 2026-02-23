@@ -263,12 +263,15 @@
   #room-thought-bubble {
     position: absolute;
     background: #fff;
-    border: 1px solid #000;
+    border: none;
     border-radius: 50%;
     z-index: 3;
     opacity: 0;
     transition: opacity 0.3s ease;
-    /* Cloud shape via overlapping radial shadows */
+    /* Cloud shape via overlapping radial shadows.
+       Order: white lobes (top) → black lobe outlines → base outline (bottom).
+       White lobes cover the base outline at intersections, so only
+       the outer edge of the combined cloud shape shows a border. */
     box-shadow:
       calc(var(--bw) *  0.28) calc(var(--bw) * -0.22) 0 calc(var(--bw) * 0.06) #fff,
       calc(var(--bw) * -0.28) calc(var(--bw) * -0.18) 0 calc(var(--bw) * 0.04) #fff,
@@ -282,7 +285,9 @@
       calc(var(--bw) *  0.32) calc(var(--bw) *  0.12) 0 calc(var(--bw) * 0.03 + 1px) #000,
       calc(var(--bw) * -0.30) calc(var(--bw) *  0.10) 0 calc(var(--bw) * 0.02 + 1px) #000,
       calc(var(--bw) *  0.10) calc(var(--bw) * -0.30) 0 calc(var(--bw) * 0.05 + 1px) #000,
-      calc(var(--bw) * -0.12) calc(var(--bw) * -0.28) 0 calc(var(--bw) * 0.04 + 1px) #000;
+      calc(var(--bw) * -0.12) calc(var(--bw) * -0.28) 0 calc(var(--bw) * 0.04 + 1px) #000,
+      /* base circle outline (behind everything) */
+      0 0 0 1px #000;
   }
 
   #room-fish {
@@ -368,7 +373,7 @@ const CONFIG = {
   // --- Thought bubble sizes (fraction of bg height) ---
   thoughtDot1Size:    0.02,
   thoughtDot2Size:    0.035,
-  thoughtBubbleSize:  0.15,
+  thoughtBubbleSize:  0.11,
 
   // --- Door trigger zone (% of background bounds) ---
   doorZone: { x: 0.85, y: 0.08, width: 0.13, height: 0.72 },
