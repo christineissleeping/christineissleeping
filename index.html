@@ -317,6 +317,7 @@
     <img id="room-bed-cat" class="room-object" src="assets/Cat-open-eye.png" alt="Cat on bed">
     <img id="room-hat" class="room-object" src="assets/Hat-1.png" alt="Hat on wall">
     <img id="room-stand-cat" class="room-object" src="assets/Cat-stand.png" alt="Standing cat" style="display:none">
+    <img id="room-stand-cat-hat" class="room-object" src="assets/Cat-stand-with-hat.png" alt="Standing cat with hat" style="display:none">
     <div id="room-thought-dot-1" class="thought-dot"></div>
     <div id="room-thought-dot-2" class="thought-dot"></div>
     <div id="room-thought-bubble"></div>
@@ -581,9 +582,10 @@ const CONFIG = {
   const roomThoughtDot2    = document.getElementById('room-thought-dot-2');
   const roomThoughtBubble  = document.getElementById('room-thought-bubble');
   const roomFish           = document.getElementById('room-fish');
+  const roomStandCatHat    = document.getElementById('room-stand-cat-hat');
 
   // ---- Scene state ----
-  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady' | 'standing' | 'hatReady'
+  var roomState = 'idle';  // 'idle' | 'thinking' | 'fishReady' | 'standing' | 'hatReady' | 'gettingHat' | 'dragReady'
 
   // bgBounds: the computed pixel rect of Background-1 on screen.
   // All room objects will be placed relative to this.
@@ -672,7 +674,8 @@ const CONFIG = {
   function layoutObjects() {
     placeObject(roomBedCat,   CONFIG.bedCatAnchor,   CONFIG.objectScale.bedCat);
     placeObject(roomHat,      CONFIG.hatAnchor,       CONFIG.objectScale.hat);
-    placeObject(roomStandCat, CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
+    placeObject(roomStandCat,    CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
+    placeObject(roomStandCatHat, CONFIG.standCatAnchor,  CONFIG.objectScale.standCat);
     layoutBubbles();
   }
 
@@ -825,6 +828,32 @@ const CONFIG = {
     }, 400);
   });
 
+  // ---- Hat click → cat gets hat (crossfade to avoid body flicker) ----
+  roomHat.addEventListener('click', function () {
+    if (roomState !== 'hatReady') return;
+    roomState = 'gettingHat';
+
+    // Stop hat pulse
+    roomHat.style.animation = '';
+
+    // Fade out hat on wall
+    roomHat.style.transition = 'opacity 0.6s ease';
+    roomHat.style.opacity = '0';
+
+    // Layer Cat-stand-with-hat exactly over Cat-stand, fade it in.
+    // Cat-stand stays visible underneath → no body flicker.
+    roomStandCatHat.style.display = 'block';
+    roomStandCatHat.style.opacity = '0';
+    roomStandCatHat.style.transition = 'opacity 0.6s ease';
+    roomStandCatHat.offsetHeight; // force reflow
+    roomStandCatHat.style.opacity = '1';
+
+    setTimeout(function () {
+      roomHat.style.display = 'none';
+      roomState = 'dragReady';
+    }, 700);
+  });
+
   // Expose state for future steps
   window.getRoomState = function () { return roomState; };
 
@@ -848,7 +877,7 @@ const CONFIG = {
   };
 
   // ---- Init: wait for ALL images to load before layout ----
-  var images = [roomBg, roomBedCat, roomHat, roomStandCat, roomFish];
+  var images = [roomBg, roomBedCat, roomHat, roomStandCat, roomStandCatHat, roomFish];
   var loaded = 0;
   var total  = images.length;
 
